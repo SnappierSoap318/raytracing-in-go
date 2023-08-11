@@ -57,7 +57,7 @@ func main() {
 	camera_center := glm.Vec3{0.0, 0.0, 0.0}
 
 	const viewportHeight = 2.0
-	const viewportWidth = (image_width / image_width) * viewportHeight
+	const viewportWidth = (float32(image_width) / float32(image_height)) * viewportHeight
 
 	viewport_u := glm.Vec3{viewportWidth, 0, 0}
 	viewport_u_half := viewport_u.Mul(0.5)
@@ -134,6 +134,11 @@ func writeColours(image *image.NRGBA, x, y int, pixel glm.Vec3) {
 }
 
 func RayColour(r *Ray) glm.Vec3 {
+
+	if hit_sphere(glm.Vec3{0, 0, -1}, 0.5, r) {
+		return glm.Vec3{1, 0, 0}
+	}
+
 	ray_dir := r.Dir()
 	unit_dir := ray_dir.Normalized()
 
@@ -145,4 +150,13 @@ func RayColour(r *Ray) glm.Vec3 {
 	blue = blue.Mul(a)
 
 	return white.Add(&blue)
+}
+
+func hit_sphere(center glm.Vec3, radius float32, r *Ray) bool {
+	oc := r.Origin.Sub(&center)
+	a := r.Direction.Dot(&r.Direction)
+	b := 2.0 * oc.Dot(&r.Direction)
+	c := oc.Dot(&oc) - radius*radius
+	discriminant := b*b - 4*a*c
+	return discriminant > 0
 }
