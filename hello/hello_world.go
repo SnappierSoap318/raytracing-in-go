@@ -8,6 +8,7 @@ import (
 	"log"
 	"os"
 
+	pb "github.com/cheggaaa/pb/v3"
 	glm "github.com/engoengine/glm"
 )
 
@@ -18,8 +19,10 @@ func main() {
 
 	image := image.NewNRGBA(image.Rect(0, 0, width, height))
 
+	bar := pb.StartNew(height)
+
 	for y := 0; y < height; y++ {
-		fmt.Println("Scanlines remaining: ", height-y)
+		bar.Increment()
 		for x := 0; x < width; x++ {
 
 			pixel := glm.Vec3{(float32(x) / float32(width-1)), (float32(y) / float32(height-1)), float32(0)}
@@ -27,6 +30,7 @@ func main() {
 			writeColours(image, x, y, pixel)
 		}
 	}
+	bar.Finish()
 
 	f, err := os.Create("image.png")
 	if err != nil {
