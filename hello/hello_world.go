@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/png"
 	"log"
+	"math"
 	"os"
 
 	pb "github.com/cheggaaa/pb/v3"
@@ -49,7 +50,7 @@ func newRay(o, d glm.Vec3) *Ray {
 
 func main() {
 	const aspectRatio = 16.0 / 9.0
-	const image_width = 1920
+	const image_width = 400
 	const image_height = int(image_width / aspectRatio)
 
 	focal_length := 1.0
@@ -134,9 +135,12 @@ func writeColours(image *image.NRGBA, x, y int, pixel glm.Vec3) {
 }
 
 func RayColour(r *Ray) glm.Vec3 {
-
-	if hit_sphere(glm.Vec3{0, 0, -1}, 0.5, r) {
-		return glm.Vec3{1, 0, 0}
+	t := hit_sphere(glm.Vec3{0.0, 0.0, -1.0}, 0.5, r)
+	if t > 0.0 {
+		N := r.At(t)
+		N = N.Sub(&glm.Vec3{0, 0, -1})
+		colour := glm.Vec3{N.X() + 1.0, N.Y() + 1.0, N.Z() + 1.0}
+		return colour.Mul(0.5)
 	}
 
 	ray_dir := r.Dir()
@@ -152,11 +156,16 @@ func RayColour(r *Ray) glm.Vec3 {
 	return white.Add(&blue)
 }
 
-func hit_sphere(center glm.Vec3, radius float32, r *Ray) bool {
+func hit_sphere(center glm.Vec3, radius float32, r *Ray) float32 {
 	oc := r.Origin.Sub(&center)
 	a := r.Direction.Dot(&r.Direction)
 	b := 2.0 * oc.Dot(&r.Direction)
 	c := oc.Dot(&oc) - radius*radius
 	discriminant := b*b - 4*a*c
-	return discriminant > 0
+
+	if discriminant < 0 {
+		return -1.0
+	} else {
+		return (-b - float32(math.Sqrt(float64(discriminant)))) / (2.0 * a)
+	}
 }
