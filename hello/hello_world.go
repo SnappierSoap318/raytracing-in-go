@@ -12,25 +12,98 @@ import (
 	glm "github.com/engoengine/glm"
 )
 
+type at func(float32) glm.Vec3
+type origin func() glm.Vec3
+type Direction func() glm.Vec3
+
+type Ray struct {
+	Origin    glm.Vec3
+	Direction glm.Vec3
+
+	At   at
+	Orig origin
+	Dir  Direction
+}
+
+func newRay(o, d glm.Vec3) *Ray {
+	r := new(Ray)
+
+	r.Origin = o
+	r.Direction = d
+
+	r.At = func(t float32) glm.Vec3 {
+		temp := r.Direction.Mul(t)
+		or := r.Orig()
+		return or.Add(&temp)
+	}
+
+	r.Orig = func() glm.Vec3 {
+		return r.Origin
+	}
+
+	r.Dir = func() glm.Vec3 {
+		return r.Direction
+	}
+	return r
+}
+
 func main() {
-	const width, height = 640, 480
+	const aspectRatio = 16.0 / 9.0
+	const image_width = 1920
+	const image_height = int(image_width / aspectRatio)
+
+	focal_length := 1.0
+
+	camera_center := glm.Vec3{0.0, 0.0, 0.0}
+
+	const viewportHeight = 2.0
+	const viewportWidth = (image_width / image_width) * viewportHeight
+
+	viewport_u := glm.Vec3{viewportWidth, 0, 0}
+	viewport_u_half := viewport_u.Mul(0.5)
+
+	viewport_v := glm.Vec3{0, -viewportHeight, 0}
+	viewport_v_half := viewport_v.Mul(0.5)
+
+	pixel_delta_u := viewport_u.Mul(1.0 / float32(image_width))
+	pixel_delta_v := viewport_v.Mul(1.0 / float32(image_height))
+
+	focal_vec := glm.Vec3{0, 0, float32(focal_length)}
+
+	viewport_upper_left_corner := camera_center.Sub(&focal_vec)
+	viewport_upper_left_corner = viewport_upper_left_corner.Sub(&viewport_u_half)
+	viewport_upper_left_corner = viewport_upper_left_corner.Sub(&viewport_v_half)
+
+	pixel_sum := pixel_delta_u.Add(&pixel_delta_v)
+	pixel_sum = pixel_sum.Mul(0.5)
+	pixel00_loc := viewport_upper_left_corner.Add(&pixel_sum)
 
 	fmt.Println("Go Raytracer!")
 
-	image := image.NewNRGBA(image.Rect(0, 0, width, height))
+	image := image.NewNRGBA(image.Rect(0, 0, image_width, image_height))
 
-	bar := pb.StartNew(height)
+	bar := pb.StartNew(image_height)
 
-	for y := 0; y < height; y++ {
+	for y := 0; y < image_height; y++ {
 		bar.Increment()
-		for x := 0; x < width; x++ {
+		for x := 0; x < image_width; x++ {
+			pixel_u_x := pixel_delta_u.Mul(float32(x))
+			pixel_v_y := pixel_delta_v.Mul(float32(y))
+			pixel_center := pixel00_loc.Add(&pixel_u_x)
+			pixel_center = pixel_center.Add(&pixel_v_y)
 
-			pixel := glm.Vec3{(float32(x) / float32(width-1)), (float32(y) / float32(height-1)), float32(0)}
+			ray_dir := pixel_center.Sub(&camera_center)
+
+			r := newRay(camera_center, ray_dir)
+
+			pixel := RayColour(r)
 
 			writeColours(image, x, y, pixel)
 		}
 	}
 	bar.Finish()
+
+	fmt.Println("Finish")
 
 	f, err := os.Create("image.png")
 	if err != nil {
@@ -58,4 +131,18 @@ func writeColours(image *image.NRGBA, x, y int, pixel glm.Vec3) {
 		B: ib,
 		A: 255,
 	})
+}
+
+func RayColour(r *Ray) glm.Vec3 {
+	ray_dir := r.Dir()
+	unit_dir := ray_dir.Normalized()
+
+	a := 0.5*unit_dir.Y() + 1.0
+	white := glm.Vec3{1.0, 1.0, 1.0}
+	white = white.Mul(1.0 - a)
+
+	blue := glm.Vec3{0.5, 0.7, 1.0}
+	blue = blue.Mul(a)
+
+	return white.Add(&blue)
 }
